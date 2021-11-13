@@ -55,20 +55,15 @@ func create_input_map(device_id: int):
 	#	},
 
 	for action_identifier in input_map:
-		# remove everything first
-		InputMap.action_erase_events(action_identifier)
-		InputMap.erase_action(action_identifier)
-		# add it again
-		InputMap.add_action(action_identifier)
-		
 		var evMotion = InputEventJoypadMotion.new()
 		evMotion.set_axis(input_map[action_identifier].axis)
+		evMotion.set_device(device_id)
 		evMotion.set_axis_value(input_map[action_identifier].axis_value)
 		InputMap.action_add_event(action_identifier, evMotion)
 		
 		var evCursor = InputEventJoypadButton.new()
 		evCursor.set_button_index(input_map[action_identifier].scancodes_dpad[0])
-		
+		evCursor.set_device(device_id)
 		
 		InputMap.action_add_event(action_identifier, evCursor)
-	
+			
