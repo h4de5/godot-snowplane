@@ -16,4 +16,4 @@ func control_pad(event: InputEvent):
 		# see: https://docs.godotengine.org/en/stable/tutorials/inputs/controllers_gamepads_joysticks.html#which-input-singleton-method-should-i-use
 		move_vector = Input.get_vector("ui_left_"+ str(device_id), "ui_right_"+ str(device_id), "ui_up_"+ str(device_id), "ui_down_"+ str(device_id))
 #		print("move_vector ", move_vector )
-		get_tree().set_input_as_handled()
+#		get_tree().set_input_as_handled()

@@ -55,6 +55,7 @@ func create_input_map(device_id: int):
 	#	},
 
 	for action_identifier in input_map:
+		InputMap.add_action(action_identifier)
 		var evMotion = InputEventJoypadMotion.new()
 		evMotion.set_axis(input_map[action_identifier].axis)
 		evMotion.set_device(device_id)
