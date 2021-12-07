@@ -3,7 +3,7 @@ on: push
 
 env:
   GODOT_VERSION: 3.4
-  EXPORT_NAME: Schneeflock
+  EXPORT_NAME: schneeflock
 
 jobs:
   export-windows:
