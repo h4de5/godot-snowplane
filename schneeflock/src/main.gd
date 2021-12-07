@@ -43,7 +43,7 @@ func add_player_to_game(player_id: int):
 func remove_player_from_game(player_id: int):
 	get_node("players").remove_child(get_node("players/plane_" + str(player_id)))
 
-func _joy_connection_changed(device: int, connected: bool, name:  String, guid:  String ):
+func _joy_connection_changed(device: int, connected: bool, name:  String = "new", guid:  String = "X1234" ):
 	if connected:
 		print("new player ", name, " # ", str(device) )
 		add_player_to_game(device)
