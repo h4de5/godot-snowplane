@@ -7,3 +7,10 @@ export.cfg
 # Mono-specific ignores
 .mono/
 data_*/
+
+# build related directory
+build/
+
+# android
+*.keystore.*
+*.keystore

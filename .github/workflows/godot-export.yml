@@ -1,0 +1,204 @@
+name: "godot export"
+
+on:
+  push:
+    branches:
+      - main
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+
+jobs:
+  # job id, can be anything
+  export:
+    # Always use ubuntu-latest for this action
+    runs-on: ubuntu-latest
+    # Job name, can be anything
+    name: Export Job
+    steps:
+      # Always include the checkout step so that
+      # your project is available for Godot to export
+      - name: checkout
+        uses: actions/checkout@v2.3.1
+        # Ensure that you get the entire project history
+        with:
+          fetch-depth: 0
+
+      # multiarch needs to be enabled first - add i386 arch
+      - name: Update apt
+        run: |
+          # sudo dpkg --add-architecture i386
+          sudo apt-get update
+
+      # breaks windows app, does not change icon
+      - name: install wine
+        id: wine_install
+        run: |
+          # sudo apt install -y wine64 wine32:i386 libwine:i386
+          sudo apt install -y wine64
+          echo ::set-output name=WINE_PATH::$(which wine64)
+
+      - name: Install additional software
+        run: |
+          sudo apt install -y rsync crudini
+
+      - name: Skip Android export
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        if: ${{ env.ANDROID_KEYSTORE == '' }}
+        run: |
+          crudini --del godot/export_presets.cfg $(for id in {0..10}; do crudini --get --format=lines godot/export_presets.cfg preset.$id platform 2> /dev/null ; done | grep Android | grep -o 'preset\.[0-9]*').options
+          crudini --del godot/export_presets.cfg $(for id in {0..10}; do crudini --get --format=lines godot/export_presets.cfg preset.$id platform 2> /dev/null ; done | grep Android | grep -o 'preset\.[0-9]*')
+
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        if: ${{ env.ANDROID_KEYSTORE != '' }}
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        if: ${{ env.ANDROID_KEYSTORE != '' }}
+        uses: android-actions/setup-android@v2
+
+      - name: Prepare keystore
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        if: ${{ env.ANDROID_KEYSTORE != '' }}
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE }}" >> android.keystore.asc
+          gpg -d --passphrase "${{ secrets.ANDROID_KEYSTORE_PASS }}" --batch android.keystore.asc > android.keystore
+
+      # ...above this line is the workflow job setup
+      - name: use custom editor settings
+        run: |
+          mkdir -p ~/.config/godot
+          cp godot/editor_settings-3.tres ~/.config/godot/
+
+      - name: export godot
+        # Use latest version (see releases for all versions)
+        uses: firebelley/godot-export@v3.0.0
+        with:
+          # Base version. Patch versions are incremented when this action runs.
+          base_version: 0.0.1
+          # base_version: ${{ steps.tag_version.outputs.TAG_VERSION}}
+          # Defining all the required inputs
+          # I used the latest version of Godot in this example
+          godot_executable_download_url: https://downloads.tuxfamily.org/godotengine/3.4/Godot_v3.4-stable_linux_headless.64.zip
+          godot_export_templates_download_url: https://downloads.tuxfamily.org/godotengine/3.4/Godot_v3.4-stable_export_templates.tpz
+          # https://downloads.tuxfamily.org/godotengine/3.4.1/rc1/
+          relative_project_path: ./godot
+          archive_single_release_output: false
+          # export_debug: false
+          export_debug: false
+          archive_export_output: true
+          generate_release_notes: true
+          create_release: true
+          use_preset_export_path: true
+          # relative_export_path: "build"
+          wine_path: ${{ steps.wine_install.outputs.WINE_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to GitHub Pages 🚀
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages # The branch the action should deploy to.
+          FOLDER: /home/runner/.local/share/godot/builds/HTML5/ # The folder the action should deploy.
+
+      # - name: let me see those files
+      #   run: |
+      #     ls -lha /home/runner/.local/share/godot/builds
+      #     ls -lha /home/runner/work/godot-boilerplate/godot-boilerplate/build
+      #     pwd
+      # pwd: /home/runner/work/godot-boilerplate/godot-boilerplate
+      # Android
+      # HTML5
+      # LinuxX11
+      # Mac OSX
+      # Windows Desktop
+
+      - name: Create zips
+        run: |
+          cd /home/runner/.local/share/godot/builds/
+          cd "HTML5" ; zip -r ${{ github.workspace }}/build/html5.zip . ; cd ..
+          cd "LinuxX11" ; zip -r ${{ github.workspace }}/build/linux.zip . ; cd ..
+          cd "Mac OSX" ; zip -r ${{ github.workspace }}/build/macosx.zip . ; cd ..
+          cd "Windows Desktop" ; zip -r ${{ github.workspace }}/build/windows.zip . ; cd ..
+
+      - name: Create android zips
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        if: ${{ env.ANDROID_KEYSTORE != '' }}
+        run: |
+          cd /home/runner/.local/share/godot/builds/
+          cd "Android" ; zip -r ${{ github.workspace }}/build/android.zip . ; cd ..
+
+      - id: get_version
+        name: Get git tag version
+        run: |
+          CURRENT_TAG=$(git describe --abbrev=0 --tags `git rev-list --tags --skip=0 --max-count=1`)
+          echo ${CURRENT_TAG}
+          echo ::set-output name=version::${CURRENT_TAG}
+
+      - name: Deploy itch.io - windows
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
+          CHANNEL: windows
+          ITCH_GAME: ${{ secrets.ITCHIO_GAME }}
+          ITCH_USER: ${{ secrets.ITCHIO_USER }}
+          PACKAGE: build/windows.zip
+          VERSION: ${{ steps.get_version.outputs.version }}
+        if: ${{ env.ITCH_USER != '' }}
+        uses: josephbmanley/butler-publish-itchio-action@master
+
+      - name: Deploy itch.io - html5
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
+          CHANNEL: HTML
+          ITCH_GAME: ${{ secrets.ITCHIO_GAME }}
+          ITCH_USER: ${{ secrets.ITCHIO_USER }}
+          PACKAGE: build/html5.zip
+          VERSION: ${{ steps.get_version.outputs.version }}
+        if: ${{ env.ITCH_USER != '' }}
+        uses: josephbmanley/butler-publish-itchio-action@master
+
+      - name: Deploy itch.io - linux
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
+          CHANNEL: linux
+          ITCH_GAME: ${{ secrets.ITCHIO_GAME }}
+          ITCH_USER: ${{ secrets.ITCHIO_USER }}
+          PACKAGE: build/linux.zip
+          VERSION: ${{ steps.get_version.outputs.version }}
+        if: ${{ env.ITCH_USER != '' }}
+        uses: josephbmanley/butler-publish-itchio-action@master
+
+      - name: Deploy itch.io - macosx
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
+          CHANNEL: mac
+          ITCH_GAME: ${{ secrets.ITCHIO_GAME }}
+          ITCH_USER: ${{ secrets.ITCHIO_USER }}
+          PACKAGE: build/macosx.zip
+          VERSION: ${{ steps.get_version.outputs.version }}
+        if: ${{ env.ITCH_USER != '' }}
+        uses: josephbmanley/butler-publish-itchio-action@master
+
+      - name: Deploy itch.io - android
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
+          CHANNEL: android
+          ITCH_GAME: ${{ secrets.ITCHIO_GAME }}
+          ITCH_USER: ${{ secrets.ITCHIO_USER }}
+          PACKAGE: build/android.zip
+          VERSION: ${{ steps.get_version.outputs.version }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        if: ${{ env.ITCH_USER != '' && env.ANDROID_KEYSTORE != '' }}
+        uses: josephbmanley/butler-publish-itchio-action@master
