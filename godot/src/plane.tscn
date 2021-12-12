@@ -29,14 +29,14 @@ animations = [ {
 "name": "green",
 "speed": 5.0
 }, {
-"frames": [ ExtResource( 10 ), ExtResource( 11 ), ExtResource( 11 ), ExtResource( 12 ) ],
-"loop": true,
-"name": "red",
-"speed": 5.0
-}, {
 "frames": [ ExtResource( 8 ), ExtResource( 7 ), ExtResource( 9 ), ExtResource( 7 ) ],
 "loop": true,
 "name": "yellow",
+"speed": 5.0
+}, {
+"frames": [ ExtResource( 10 ), ExtResource( 11 ), ExtResource( 11 ), ExtResource( 12 ) ],
+"loop": true,
+"name": "red",
 "speed": 5.0
 } ]
 
@@ -52,5 +52,5 @@ one_way_collision_margin = 2.0
 [node name="AnimatedSprite" type="AnimatedSprite" parent="KinematicBody2D/CollisionPolygon2D"]
 frames = SubResource( 1 )
 animation = "blue"
-frame = 3
+frame = 1
 playing = true
