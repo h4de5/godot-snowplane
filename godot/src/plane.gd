@@ -1,16 +1,19 @@
 extends Node
 
 var player_id: int = 0
+var device_type: String = ''
 
 var player_colors = ["green", "blue", "red", "yellow"]
 
 func _enter_tree():
 	get_node("input").device_id = player_id
+	get_node("input").device_type = device_type
 	
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	get_node("KinematicBody2D/CollisionPolygon2D/AnimatedSprite").set_animation(player_colors[player_id])
-	get_node("input").device_id = player_id
+#	get_node("input").device_id = player_id
+#	get_node("input").device_type = device_type
 
 func _physics_process(delta):
 #	print("vector ", get_node("input").move_vector)
